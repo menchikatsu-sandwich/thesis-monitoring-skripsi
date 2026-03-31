@@ -1,7 +1,6 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\AuthController;
 
@@ -16,26 +15,24 @@ Route::middleware(['guest'])->group(function () {
 // Auth Routes
 Route::middleware(['auth'])->group(function () {
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
-    
-    // Dashboard Utama
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     
-    // Mahasiswa
+    // Student Actions
     Route::post('/submit-proposal', [DashboardController::class, 'submitProposal'])->name('thesis.submit_proposal');
     Route::post('/upload-draft', [DashboardController::class, 'uploadDraft'])->name('thesis.upload');
+    Route::post('/submit-logbook', [DashboardController::class, 'submitLogbook'])->name('thesis.logbook');
     
-    // Dosen
+    // Lecturer Actions
     Route::post('/review-thesis', [DashboardController::class, 'reviewThesis'])->name('thesis.review');
+    Route::post('/approve-logbook', [DashboardController::class, 'approveLogbook'])->name('thesis.logbook.approve');
     
-    // Admin
-    Route::post('/assign-lecturers', [DashboardController::class, 'assignLecturers'])->name('admin.assign');
-    Route::post('/schedule-exam', [DashboardController::class, 'scheduleExam'])->name('admin.schedule');
+    // Admin Actions
+    Route::post('/assign-lecturers', [DashboardController::class, 'assignLecturers'])->name('admin.assign_lecturers');
+    Route::post('/schedule-exam', [DashboardController::class, 'scheduleExam'])->name('admin.schedule_exam');
+    Route::post('/mark-graduated', [DashboardController::class, 'markAsGraduated'])->name('admin.mark_graduated');
 });
 
 // Redirect root
 Route::get('/', function () {
-    if (Auth::check()) {
-        return redirect()->route('dashboard');
-    }
     return redirect()->route('login');
 });

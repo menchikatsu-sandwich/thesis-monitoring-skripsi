@@ -22,13 +22,37 @@ class Thesis extends Model
 
     public function getProgressPercentageAttribute()
     {
-        $steps = ['proposal', 'seminar_hasil', 'sidang', 'revisi', 'acc_pembimbing', 'siap_sidang', 'lulus'];
-        $current = array_search($this->status, $steps);
-        if ($current === false) return 0;
-        return min(100, ($current + 1) * 15); 
+        // Urutan status tetap, revisi tidak mundurkan progress utama
+        $steps = [
+            'menunggu_plotting', 
+            'pengajuan_awal', 
+            'bimbingan_aktif', // Tahap bimbingan aktif
+            'acc_pembimbing', 
+            'siap_sidang', 
+            'lulus'
+        ];
+
+        $currentStatus = $this->status;
+
+        // Jika status revisi, anggap posisinya sama dengan bimbingan_aktif (tidak mundur)
+        if ($currentStatus === 'perlu_revisi') {
+            $currentStatus = 'bimbingan_aktif';
+        }
+
+        $index = array_search($currentStatus, $steps);
+        
+        if ($index === false) return 0;
+        
+        // Hitung persen (total 5 langkah utama sebelum lulus)
+        $totalSteps = count($steps) - 1; 
+        return round(($index / $totalSteps) * 100);
     }
     
-    public function isAccByLecturer() {
-        return in_array($this->status, ['acc_pembimbing', 'siap_sidang', 'lulus']);
+    public function isWaitingForPlotting() {
+        return $this->status === 'menunggu_plotting';
+    }
+
+    public function isInGuidance() {
+        return in_array($this->status, ['pengerjaan_skripsi', 'perlu_revisi']);
     }
 }

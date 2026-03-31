@@ -8,22 +8,26 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('logbooks', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('thesis_id')->constrained('theses')->onDelete('cascade');
-            $table->date('activity_date');
-            $table->string('topic');
-            $table->text('description');
-            
-            // Kolom Baru untuk Upload Draft Skripsi (bisa dipisah atau digabung di logbook terbaru)
-            // Untuk simplifikasi, kita anggap upload draft utama ada di tabel 'theses', 
-            // tapi logbook bisa punya lampiran kecil.
-            $table->string('file_path')->nullable(); 
-            
-            $table->text('feedback')->nullable(); // Catatan revisi dosen
-            $table->enum('status', ['pending', 'approved', 'rejected'])->default('pending');
-            $table->timestamps();
-        });
+        
+        if (!Schema::hasTable('logbooks')) {
+            Schema::create('logbooks', function (Blueprint $table) {
+                $table->id();
+                $table->foreignId('thesis_id')->constrained('theses')->onDelete('cascade');
+                $table->string('activity_type')->default('upload_draft'); // 'upload_draft', 'revisi_dosen'
+                $table->string('file_path')->nullable(); // Link file saat itu
+                $table->text('feedback')->nullable(); // Komentar dosen (copy dari lecturer_notes saat itu)
+                $table->enum('status', ['pending', 'approved', 'rejected'])->default('pending');
+                $table->timestamps();
+            });
+        } else {
+            // Tambah kolom jika belum ada (untuk keamanan jika tabel sudah exist)
+            Schema::table('logbooks', function (Blueprint $table) {
+                if (!Schema::hasColumn('logbooks', 'activity_type')) {
+                    $table->string('activity_type')->default('upload_draft')->after('thesis_id');
+                }
+                // Pastikan kolom lain ada
+            });
+        }
     }
 
     public function down(): void
