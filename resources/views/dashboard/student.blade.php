@@ -248,7 +248,7 @@
                                 file:mr-2 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-white file:text-indigo-700 hover:file:bg-indigo-50"/>
                         </label>
                         <button type="submit" class="mt-3 w-full py-2.5 bg-white text-indigo-700 font-bold rounded-xl text-sm hover:bg-indigo-50 transition shadow-lg">
-                            Upload Revisi
+                            Upload Draft
                         </button>
                     </form>
                 </div>

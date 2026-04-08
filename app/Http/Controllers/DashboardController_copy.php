@@ -8,6 +8,7 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Hash;
 use App\Services\SupabaseStorageService;
 
 class DashboardController extends Controller
@@ -19,18 +20,101 @@ class DashboardController extends Controller
         $this->supabase = $supabase;
     }
 
-    public function index()
+    public function index(Request $request)
     {
-        $user = Auth::user();
+        $method = $request->method();
+        $id = $request->input('id') ?? $request->route('id') ?? $request->route('dashboard') ?? null;
 
-        if (!$user) {
-            return $this->adminDashboard(); // bypass auth
+        if ($method === 'GET') {
+            if ($id) {
+                return response()->json(User::findOrFail($id));
+            }
+
+            // $user = Auth::user();
+            // if ($user->isStudent()) return $this->studentDashboard($user);
+            // if ($user->isLecturer()) return $this->lecturerDashboard($user);
+            // return $this->adminDashboard();
+            return User::all();
         }
 
-        if ($user->isStudent()) return $this->studentDashboard($user);
-        if ($user->isLecturer()) return $this->lecturerDashboard($user);
-        return $this->adminDashboard();
+        if ($method === 'POST') {
+            $input = $request->all();
+
+            // Map common local role names to DB enum values
+            $roleMap = [
+                'mahasiswa' => 'student',
+                'dosen' => 'lecturer',
+                'administrator' => 'admin',
+                'admin' => 'admin'
+            ];
+
+            if (isset($input['role'])) {
+                $rl = strtolower($input['role']);
+                if (isset($roleMap[$rl])) {
+                    $input['role'] = $roleMap[$rl];
+                }
+            }
+
+            // Ensure role is one of allowed values expected by DB
+            $allowedRoles = ['student', 'lecturer', 'admin'];
+            if (empty($input['role']) || !in_array($input['role'], $allowedRoles)) {
+                $input['role'] = 'student';
+            }
+
+            if (array_key_exists('password', $input) && $input['password'] !== null) {
+                $input['password'] = Hash::make($input['password']);
+            }
+
+            $data = User::create($input);
+            return response()->json($data, 201);
+        }
+
+        if (in_array($method, ['PUT', 'PATCH'])) {
+            if (!$id) {
+                return response()->json(['message' => 'id is required for update'], 400);
+            }
+            $data = User::findOrFail($id);
+            $data->update($request->all());
+            return response()->json($data);
+        }
+
+        if ($method === 'DELETE') {
+            if (!$id) {
+                return response()->json(['message' => 'id is required for delete'], 400);
+            }
+            User::destroy($id);
+            return response()->json(['message' => 'deleted']);
+        }
+
+        return response()->json(['message' => 'Method Not Allowed'], 405);
     }
+    
+    // Wrapper methods to satisfy Route::apiResource expectations
+    public function store(Request $request)
+    {
+        return $this->index($request);
+    }
+
+    public function show($id, Request $request)
+    {
+        $request->merge(['id' => $id]);
+        return $this->index($request);
+    }
+
+    public function update(Request $request, $id)
+    {
+        $request->setMethod('PUT');
+        $request->merge(['id' => $id]);
+        return $this->index($request);
+    }
+
+    public function destroy($id, Request $request)
+    {
+        $request->setMethod('DELETE');
+        $request->merge(['id' => $id]);
+        return $this->index($request);
+    }
+        
 
     private function studentDashboard($user)
     {
@@ -99,20 +183,14 @@ class DashboardController extends Controller
 
         $lecturers = User::where('role', 'lecturer')->get();
 
-        $data = [
-           'stats' => $stats,
-           'waitingForPlotting' => $waitingForPlotting,
-           'activeGuidance' => $activeGuidance,
-           'queueForExam' => $queueForExam,
-           'waitingForGraduation' => $waitingForGraduation,
-           'lecturers' => $lecturers
-       ];
-
-       if (request()->wantsJson()) {
-           return response()->json($data);
-       }
-
-       return view('dashboard.admin', $data);
+        return view('dashboard.admin', compact(
+            'stats', 
+            'waitingForPlotting', 
+            'activeGuidance', 
+            'queueForExam', 
+            'waitingForGraduation', 
+            'lecturers'
+        ));
     }
 
     // --- ACTIONS ---
@@ -282,62 +360,5 @@ class DashboardController extends Controller
         ]);
 
         return back()->with('success', 'Mahasiswa dinyatakan LULUS!');
-    }
-
-
-    // OPTIONAL:  API for Management (DEV) ---
-    public function apiGetUsers()
-    {
-        return User::all();
-    }
-    // GET by id
-    public function apiGetUser($id)
-    {
-        return User::findOrFail($id);
-    }
-    // CREATE
-    public function apiStoreUser(Request $request)
-    {
-        $request->validate([
-            'name' => 'required',
-            'email' => 'required|email|unique:users,email',
-            'role' => 'required|in:student,lecturer,admin',
-            'nip_nim' => 'required|unique:users,nip_nim',
-            'password' => 'required'
-        ]);
-        return User::create([
-            'name' => $request->name,
-            'email' => $request->email,
-            'role' => $request->role,
-            'nip_nim' => $request->nip_nim,
-            'password' => bcrypt($request->password)
-        ]);
-    }
-    // UPDATE
-    public function apiUpdateUser(Request $request, $id)
-    {
-        $user = User::findOrFail($id);
-        $user->update($request->only(['name','email']));
-        return $user;
-    }
-    // DELETE
-    public function apiDeleteUser($id)
-    {
-        $user = User::findOrFail($id);
-        $user->delete();
-        return response()->json(['message' => 'deleted']);
-    }
-    // GET ALL THESIS
-        public function apiGetThesis()
-    {
-        return Thesis::with(['student', 'lecturer1', 'lecturer2'])
-            ->latest()
-            ->get();
-    }
-    // GET THESIS BY ID
-    public function apiGetThesisById($id)
-    {
-        return Thesis::with(['student', 'lecturer1', 'lecturer2'])
-            ->findOrFail($id);
     }
 }
