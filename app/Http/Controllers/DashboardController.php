@@ -23,9 +23,9 @@ class DashboardController extends Controller
     {
         $user = Auth::user();
 
-        if (!$user) {
-            return $this->adminDashboard(); // bypass auth
-        }
+        // if (!$user) {
+        //     return $this->adminDashboard(); // bypass auth
+        // }
 
         if ($user->isStudent()) return $this->studentDashboard($user);
         if ($user->isLecturer()) return $this->lecturerDashboard($user);
