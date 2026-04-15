@@ -23,7 +23,9 @@ class SupabaseStorageService
         $fileName = time() . '_' . Str::random(10) . '.' . $file->getClientOriginalExtension();
         $path = "{$folder}/{$fileName}";
 
-        $response = Http::withHeaders([
+        $response = Http::withOptions([
+            'verify' => false // ⬅️ TAMBAH INI
+        ])->withHeaders([
             'Authorization' => "Bearer {$this->key}",
             'apikey' => $this->key,
             'Content-Type' => $file->getMimeType(),
