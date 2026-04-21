@@ -6,9 +6,23 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Auth;
 
 class AuthApiController extends Controller
 {
+    // =========================
+    // VIEW
+    // =========================
+    public function showLogin()
+    {
+        return view('auth.login');
+    }
+
+    public function showRegister()
+    {
+        return view('auth.register');
+    }
+
     // =========================
     // REGISTER
     // =========================
@@ -30,14 +44,19 @@ class AuthApiController extends Controller
             'nip_nim' => $request->nip_nim,
         ]);
 
-        // 🔥 bikin token
-        $token = $user->createToken('auth_token')->plainTextToken;
+        // API mode
+        if ($request->wantsJson()) {
+            $token = $user->createToken('auth_token')->plainTextToken;
 
-        return response()->json([
-            'message' => 'Registrasi berhasil',
-            'user' => $user,
-            'token' => $token
-        ], 201);
+            return response()->json([
+                'message' => 'Registrasi berhasil',
+                'user' => $user,
+                'token' => $token
+            ], 201);
+        }
+
+        // WEB mode
+        return redirect()->route('login')->with('success', 'Registrasi berhasil! Silakan login.');
     }
 
     // =========================
@@ -52,21 +71,33 @@ class AuthApiController extends Controller
 
         $user = User::where('email', $request->email)->first();
 
-        // cek user + password
         if (!$user || !Hash::check($request->password, $user->password)) {
-            return response()->json([
-                'message' => 'Email atau password salah'
-            ], 401);
+
+            if ($request->wantsJson()) {
+                return response()->json([
+                    'message' => 'Email atau password salah'
+                ], 401);
+            }
+
+            return back()->withErrors(['email' => 'Email atau password salah']);
         }
 
-        // 🔥 generate token baru
-        $token = $user->createToken('auth_token')->plainTextToken;
+        // API mode
+        if ($request->wantsJson()) {
+            $token = $user->createToken('auth_token')->plainTextToken;
 
-        return response()->json([
-            'message' => 'Login berhasil',
-            'user' => $user,
-            'token' => $token
-        ]);
+            return response()->json([
+                'message' => 'Login berhasil',
+                'user' => $user,
+                'token' => $token
+            ]);
+        }
+
+        // WEB mode
+        Auth::login($user);
+        $request->session()->regenerate();
+
+        return redirect()->intended('/dashboard');
     }
 
     // =========================
@@ -74,16 +105,23 @@ class AuthApiController extends Controller
     // =========================
     public function logout(Request $request)
     {
-        // hapus semua token user
-        $request->user()->tokens()->delete();
+        if ($request->wantsJson()) {
+            $request->user()->tokens()->delete();
 
-        return response()->json([
-            'message' => 'Logout berhasil'
-        ]);
+            return response()->json([
+                'message' => 'Logout berhasil'
+            ]);
+        }
+
+        Auth::logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
+        return redirect('/login');
     }
 
     // =========================
-    // GET CURRENT USER
+    // ME
     // =========================
     public function me(Request $request)
     {
